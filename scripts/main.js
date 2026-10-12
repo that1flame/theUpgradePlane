@@ -30,14 +30,6 @@ var basePointGain = 0;
 var multiPointGain = 1;
 var ExpPointGain = 1;
 
-// Upgrade variables
-// I'm gonna move this to another script eventually i just don't know how to reference other scripts yet
-var upgrades = [
-    { id: "U1", cost: 0, costMult: 0, bought: 0, max: 10, title: "Fresh Start", desc: "+1 Points/s per level", req: [ "" ] },
-    { id: "U2", cost: 100, costMult: 1.5, bought: 0, max: 50, title: "The 2nd One", desc: "Description 2", req: [ "U1" ] },
-    { id: "U3", cost: 500, costMult: 2, bought: 0, max: 20, title: "The 3rd One", desc: "Description 3", req: [ "U2" ] }
-]
-
 
 // Runs when the page loads
 // The "pageLoaded" variable is here to prevent functions running prematurely
@@ -77,7 +69,10 @@ const intervalId = setInterval(() => {
     drawCanvas();
 
     // Run currency calculations
-    pointGain = Math.pow(basePointGain * multiPointGain, ExpPointGain);
+    manageBoosts();
+
+    let totalPointMulti = multiPointGain * upgrades[2].boost;
+    pointGain = Math.pow(basePointGain * totalPointMulti, ExpPointGain);
     points += (pointGain / 60);
 }, 1000/60);
 
@@ -300,17 +295,96 @@ function drawCanvas() {
             // ID Text
             ctx.fillText(`#${id}`, -(x - (190 * scale) - localX * scale) + (c.width / 2), -(y + (170 * scale) - localY * scale) + (c.height / 2));
             // Cost Text
-            ctx.fillText(`${upgrades[movingObjs[i].id - 1].cost} Points`, -(x - (190 * scale) - localX * scale) + (c.width / 2), -(y - (180 * scale) - localY * scale) + (c.height / 2));
+            ctx.fillText(`${upgrades[upgNum].cost} Points`, -(x - (190 * scale) - localX * scale) + (c.width / 2), -(y - (180 * scale) - localY * scale) + (c.height / 2));
 
             ctx.textAlign = "left";
             // Title Text
-            ctx.fillText(`${upgrades[movingObjs[i].id - 1].title}`, -(x + (190 * scale) - localX * scale) + (c.width / 2), -(y + (170 * scale) - localY * scale) + (c.height / 2));
+            ctx.fillText(`${upgrades[upgNum].title}`, -(x + (190 * scale) - localX * scale) + (c.width / 2), -(y + (170 * scale) - localY * scale) + (c.height / 2));
             // Amt Bought Text
-            ctx.fillText(`${upgrades[movingObjs[i].id - 1].bought}/${upgrades[movingObjs[i].id - 1].max}`, -(x + (190 * scale) - localX * scale) + (c.width / 2), -(y - (180 * scale)  - localY * scale) + (c.height / 2));
+            ctx.fillText(`${upgrades[upgNum].bought}/${upgrades[upgNum].max}`, -(x + (190 * scale) - localX * scale) + (c.width / 2), -(y - (180 * scale)  - localY * scale) + (c.height / 2));
 
             ctx.textAlign = "center";
             // Description Text
-            ctx.fillText(`${upgrades[movingObjs[i].id - 1].desc}`, -(x - localX * scale) + (c.width / 2), -(y - localY * scale) + (c.height / 2));
+            let descString;
+            if (upgrades[upgNum].boost != -999) {
+                descString = `${upgrades[upgNum].desc} (Currently: x${formatNumber(upgrades[upgNum].boost, 2)})`;
+                console.log(`Orig: ${upgrades[upgNum].desc.length} | New: ${descString.length}`);
+            }
+            else {
+                descString = `${upgrades[upgNum].desc}`;
+            }
+
+            // Multi-line descriptions may exist. This is my half-assed attempt to make it work
+            const maxLineLength = 25;
+            let lineHeight = 40 * scale; // I'm totally just guessing what this is supposed to be
+
+            let lines = 0;
+            let charsCounted = 0;
+
+            let stringMin;
+            let stringMax;
+            let lastStringEnd = -1; // -1 because the first character in a string is index 0. I SWEAR it makes sense
+            while (charsCounted < descString.length) {
+                // Detect string start/end for each line
+                stringMin = lastStringEnd + 1;
+                stringMax = stringMin + maxLineLength;
+
+                // Checks if the last character within the string portion isn't a space and does exist
+                // If it returns true, it shortens the string to the nearest space
+                if (descString.charAt(stringMax) != " " && descString.charAt(stringMax) != "") {
+                    while (descString.charAt(stringMax) != " ") {
+                        stringMax -= 1;
+                    }
+                }
+                // Does something similar for the first string, but different so it doesn't repeat words
+                if (descString.charAt(stringMin) != " " && stringMin > 0 && descString.charAt(stringMax) != "") {
+                    while (descString.charAt(stringMin) != " ") {
+                        if (stringMin > 0) stringMin -= 1;
+                    }
+                }
+
+                lines++;
+                charsCounted += stringMax - stringMin;
+            }
+            let offset = (lineHeight / 2) * (lines - 1);
+
+            // Resets the variable from counting the line amt
+            lastStringEnd = -1; // -1 because the first character in a string is index 0. I SWEAR it makes sense
+
+            for (let i = 0; i < lines; i++) {
+                // Yes, the code below is the exact same as above.. mostly
+                // I know this is redundunt as all hell, but it's functional.
+                // I barely know how the hell this works. But it does.
+
+                // Detect string start/end for each line
+                stringMin = lastStringEnd + 1;
+                stringMax = stringMin + maxLineLength;
+
+                // Breaks the loop if stringMin is greater than the string length, for some reason
+                if (stringMin > descString.length) break;
+
+                // Checks if the last character within the string portion isn't a space and does exist
+                // If it returns true, it shortens the string to the nearest space
+                if (descString.charAt(stringMax) != " " && descString.charAt(stringMax) != "") {
+                    while (descString.charAt(stringMax) != " ") {
+                        stringMax -= 1;
+                    }
+                }
+                // Does something similar for the first string, but different so it doesn't repeat words
+                if (descString.charAt(stringMin) != " " && stringMin > 0 && descString.charAt(stringMax) != "") {
+                    while (descString.charAt(stringMin) != " ") {
+                        if (stringMin > 0) stringMin -= 1;
+                    }
+                }
+
+                // Set the string and write it
+                let stringSnippet = descString.substring(stringMin, stringMax);
+                if (stringSnippet != " ") ctx.fillText(`${stringSnippet}`, -(x - localX * scale) + (c.width / 2), -((y - localY * scale) + offset - (lineHeight * i)) + (c.height / 2));
+
+                // Setup for next loop (if necessary)
+                lastStringEnd = stringMax;
+                console.log(`Loop ${i} | min: ${stringMin}, max: ${stringMax}`)
+            }
         }
     }
 
@@ -384,6 +458,7 @@ function buttonClick(id) {
             success = true;
             points -= upgrades[upgNum].cost;
             upgrades[upgNum].bought++;
+            if (upgrades[upgNum].costMult > 0) upgrades[upgNum].cost *= upgrades[upgNum].costMult;
         }
     }
 
@@ -393,27 +468,7 @@ function buttonClick(id) {
         upgrades[upgNum].cost += 10;
         basePointGain += 1;
     }
-}
-
-
-// Formats numbers so you dont just see 8734595046 etc etc
-// This is TERRIBLE I will implement BreakInfinity.js later
-// TODO (for now) -- Add extra zeroes (i.e. 1.90 instead of 1.9) to prevent flashing
-function formatNumber(num, precision) {
-    let exponent = Math.floor(Math.log10(num));
-    let mantissa = Math.round((num / 10 ** exponent) * 1000) / 1000; //Rounds the mantissa.. hopefully
-    let rounding = 10 ** precision;
-    let roundedNum;
-
-    if (num < 1e9) {
-        //Some nonsense to add commas between the numbers
-        roundedNum = Math.floor(num * rounding) / rounding;
-        if (num >= 1e6) return `${Math.floor(roundedNum / 1e6)},${Math.floor((roundedNum / 1000) % 1000).toString().padStart(3, '0')},${Math.floor(roundedNum % 1000).toString().padStart(3, '0')}`;
-        else if (num >= 1e3) return `${Math.floor(roundedNum / 1000)},${(Math.floor(roundedNum % 1000)).toString().padStart(3, '0')}`;
-        else return String(roundedNum);
-    }
-    else {
-        //Scientific notation
-        return String(mantissa + "e" + exponent)
+    if (id == "U2") {
+        multiPointGain += 1;
     }
 }
