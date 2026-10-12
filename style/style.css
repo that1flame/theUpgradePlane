@@ -1,0 +1,18 @@
+@font-face {
+    font-family: Roboto;
+    src: url(Roboto-VariableFont_wdth\,wght.ttf);
+}
+
+* {
+    box-sizing: border-box; /* Not sure if this affects a canvas but I'm not taking any chances */
+    font-family: "Roboto", sans-serif;
+    overflow: hidden;
+}
+
+body {
+    margin: 0; /* This makes the canvas take up the entire screen */
+}
+
+#mainCanvas {
+    background-color: #080808;
+}

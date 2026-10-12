@@ -1,0 +1,419 @@
+// Controls console logging, for development purposes
+// FYI -> Lines with /* */ around them were used to fix smth and im afraid I might need it again later
+let logToConsole = true;
+
+// Position-Related Variables
+let isMoving = false;
+let x = 0;
+let y = 0;
+let tempX;
+let tempY;
+let scale = 1; // This thing took way too long to get working and it's still buggy.
+               // If you're referencing my script to make something, IGNORE THIS.
+
+let mouseX;
+let mouseY;
+
+// Canvas Stuff
+let c; // Canvas -- Defined in Start()
+let ctx; // Context -- Also defined in Start()
+let dpr; // According to a guide online this is important. Not sure what it does honestly
+let withinRangeOf = "none";
+
+// Actual game related variables
+// Currencies
+var points = 0;
+
+// Point gain
+var pointGain;
+var basePointGain = 0;
+var multiPointGain = 1;
+var ExpPointGain = 1;
+
+// Upgrade variables
+// I'm gonna move this to another script eventually i just don't know how to reference other scripts yet
+var upgrades = [
+    { id: "U1", cost: 0, costMult: 0, bought: 0, max: 10, title: "Fresh Start", desc: "+1 Points/s per level", req: [ "" ] },
+    { id: "U2", cost: 100, costMult: 1.5, bought: 0, max: 50, title: "The 2nd One", desc: "Description 2", req: [ "U1" ] },
+    { id: "U3", cost: 500, costMult: 2, bought: 0, max: 20, title: "The 3rd One", desc: "Description 3", req: [ "U2" ] }
+]
+
+
+// Runs when the page loads
+// The "pageLoaded" variable is here to prevent functions running prematurely
+let pageLoaded = false;
+function Start() {
+    // Set the canvas var to match the canvas in HTML
+    c = document.getElementById("mainCanvas");
+
+    resizeCanvas();
+
+    // Set up the canvas "context" (used to actually draw on the canvas)
+    // W3Schools saved my ass here ngl
+    ctx = c.getContext("2d");
+    ctx.scale(dpr, dpr);
+    pageLoaded = true;
+    if (logToConsole) console.log("Page loaded.");
+}
+
+
+// Resises the canvas accurately
+function resizeCanvas() {
+    dpr = window.devicePixelRatio || 1;
+    c.width = Math.round(window.innerWidth * dpr);
+    c.height = Math.round(window.innerHeight * dpr);
+    c.style.width = `${window.innerWidth}px`;
+    c.style.height = `${window.innerHeight}px`;
+}
+
+
+// Runs function every 1/60 seconds
+// In other words, the canvas runs at 60fps (or at least tries to)
+const intervalId = setInterval(() => {
+    // Voids function if the page hasn't loaded
+    if (!pageLoaded) return;
+
+    // Draws the canvas
+    drawCanvas();
+
+    // Run currency calculations
+    pointGain = Math.pow(basePointGain * multiPointGain, ExpPointGain);
+    points += (pointGain / 60);
+}, 1000/60);
+
+
+// Resizes canvas when the window size changes
+window.addEventListener("resize", () => {
+    if (!pageLoaded) return;
+    resizeCanvas();
+});
+
+// Modifies the scale variable when scrolling is detected
+window.addEventListener("wheel", (event) => {
+    // Adjust scale based on.. honestly idk, ask Mozilla Docs
+    scale += -(event.deltaY / 1000);
+
+    // Set scaling limits
+    let lowerLim = 0.2;
+    let upperLim = 3;
+    if (scale > upperLim) scale = upperLim;
+    if (scale < lowerLim) scale = lowerLim;
+})
+
+
+// Runs this function every time it detects mouse movement
+document.addEventListener("mousemove", (event) => {
+    // Set mouse position variables based on where the mouse is on the screen
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+
+    // Detects if the left mouse button is being held
+    // If it is, it updates the simulated camera pos
+    if (event.buttons === 1) {
+        isMoving = true;
+        x = tempX - mouseX;
+        y = tempY - mouseY;
+        if (logToConsole) console.log("Camera is moving.")
+    }
+
+    // It is unoptimised as all hell to set this here but it makes it work so.
+    withinRangeOf = "none";
+})
+
+
+// Runs this function when it detects any mouse button inputs
+// Doesn't account for releases, only if it's down or not
+document.addEventListener("mousedown", (event) => {
+    // Set mouse position variables based on where the mouse is on the screen
+    // These are defined differently from "mousemove" above since they never interact
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+
+    // Temp coords are basically a combo of camera pos and mouse pos for pos correction
+    tempX = x + mouseX;
+    tempY = y + mouseY;
+    /* console.log(`temp X: ${tempX} temp Y: ${tempY}`) */
+
+    // Voids the function if the button pressed isn't the left mouse button
+    if (event.buttons !== 1) return;
+
+    // Detect if an element is being clicked using withinRangeOf
+    if (logToConsole) console.log(withinRangeOf);
+    if (withinRangeOf != "none") {
+        buttonClick(withinRangeOf);
+    }
+})
+
+
+// Runs this function when it detects any mouse button RELEASES
+// Only used for simulated camera movement
+// It may not actually be needed but I am NOT going to remove it
+document.addEventListener("mouseup", () => {
+    isMoving = false;
+    if (logToConsole) console.log("Mouse input released.")
+})
+
+
+// Runs this function every time any key is pressed
+document.addEventListener("keydown", (event) => {
+    // Checks if the key pressed was the spacebar
+    if (event.code === "Space") {
+        // Resets the simulated camera position & scale
+        x = 0;
+        y = 0;
+        scale = 1;
+    }
+})
+
+
+// Defines all objects on the page
+// This is probably unoptimised as all hell but if it works it works
+// I could probably just add coords to upgrades[] and make it simpler but ... I don't wanna redo this
+const movingObjs = [
+    { type: "Upgrade", upgType: "U", id: "1", coords: [0, 0] },
+    { type: "Upgrade", upgType: "U", id: "2", coords: [-250, 500] },
+    { type: "Upgrade", upgType: "U", id: "3", coords: [250, 500] }
+    
+    // Order matters. Text is drawn last so it appears on top.
+    // There's going to be non-upgrade text and boxes later... probably
+]
+
+
+// Makes all the elements on the page
+// Becuase it's all on a canvas, it does the same loop every frame:
+// Erase the visible canvas -> Draw every item
+function drawCanvas() {
+    // Define position vars
+    let localX;
+    let localY;
+
+    // Resets the canvas
+    ctx.clearRect(0, 0, c.width, c.height);
+
+    // Draws every object in movingObjs[] based on simulated camera location
+    for (let i = 0; i < movingObjs.length; i++) {
+        // Gets the coords of the object
+        localX = movingObjs[i].coords[0];
+        localY = -(movingObjs[i].coords[1]); //Negative because canvas defaults to downward y-scaling. Fuck you Brendan Eich.
+
+        // Stylizes anything to be drawn. Mostly text specifications
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // Draws all boxes
+        if (movingObjs[i].type == "Box") {
+            // Define key points for the box
+            let obj = movingObjs[i];
+            let w = obj.size[0];
+            let h = obj.size[1];
+            let x1 = localX - (w / 2);
+            let y1 = localY - (h / 2);
+
+            // Define box styles
+            ctx.strokeStyle = obj.border;
+            ctx.fillStyle = obj.bg;
+            ctx.lineWidth = 3;
+
+            // Draw the box (outline & fill must be done separately)
+            ctx.strokeRect(-(x - x1) + (c.width / 2), -(y - y1) + (c.height / 2), w, h);
+            ctx.fillRect(-(x - x1) + (c.width / 2), -(y - y1) + (c.height / 2), w, h);
+        }
+
+        // Draws all text
+        if (movingObjs[i].type == "Text") {
+            // Set text styles
+            ctx.font = `${movingObjs[i].size[0]}px Roboto`;
+            ctx.fillStyle = movingObjs[i].color;
+            
+            // Set text content
+            let text = movingObjs[i].content;
+            if (text == "clicks") {
+                text = `${clicks} Clicks`;
+            }
+            if (text == "bool") {
+                text = toggled;
+            }
+
+            // Draws the text aligned to the canvas, adjusted to (0, 0) based on canvas size
+            ctx.fillText(text, -(x - localX) + (c.width / 2), -(y - localY) + (c.height / 2));
+        }
+
+        // Draws all upgrades
+        if (movingObjs[i].type == "Upgrade") {
+            // First: Detect if the upgrade has even been unlocked
+            let fullID = movingObjs[i].upgType + movingObjs[i].id;
+            let upgNum = upgrades.findIndex(item => item.id == fullID);
+            let reqs = upgrades[upgNum].req.length;
+            let unlocked = false;
+            if (logToConsole) console.log(`fullID: ${fullID} | upgNum: ${upgNum} | reqs: ${reqs} | unlocked: ${unlocked}`);
+            for (let j = 0; j < reqs; j++) {
+                // Case 1: No requirement
+                if (upgrades[upgNum].req[j] == "") {
+                    unlocked = true;
+                    break;
+                }
+
+                // Case 2: Normal upgrade requirement
+                let numToCheck = upgrades.findIndex(item => item.id == upgrades[upgNum].req[j]);
+                if (logToConsole) console.log(`req: ${upgrades[upgNum].req[j]} | numToCheck: ${numToCheck}`);
+                if (upgrades[numToCheck].bought > 0) {
+                    unlocked = true;
+                    break;
+                }
+            }
+            // Stops the function if the upgrade hasn't been unlocked
+            if (!unlocked) break;
+
+            // Set defining upgrade parts
+            let id = movingObjs[i].id;
+            // Set width & height (more organised ig)
+            let width = 400;
+            let height = 400;
+
+            // This moves the coords from the center of the box to the corner so that the box is centered at its coords
+            // This is done because boxes are drawn with their top-left corner pos and width/height
+            x1 = localX - (width / 2);
+            y1 = localY - (height / 2);
+
+            // Set box style
+            ctx.strokeStyle = "rgb(100, 100, 100)";
+            ctx.fillStyle = "rgba(100, 100, 100, 0.2)";
+            ctx.lineWidth = 3 * scale;
+
+            // Parameter: Change border style if touching mouse
+            if (touchingMouse(localX * scale, -localY * scale, width * scale, height * scale)) {
+                withinRangeOf = movingObjs[i].upgType + movingObjs[i].id;
+                ctx.strokeStyle = "rgb(255, 255, 255)";
+            }
+
+            // Draw the box
+            ctx.strokeRect((-(x - x1 * scale) + (c.width / 2)), (-(y - y1 * scale) + (c.height / 2)) , width * scale, height * scale);
+            ctx.fillRect((-(x - x1 * scale) + (c.width / 2)), (-(y - y1 * scale) + (c.height / 2)), width * scale, height * scale);
+
+            // Now, the different texts for an upgrade are drawn
+            // Set the text style for the upgrade
+            ctx.fillStyle = "white";
+            let fontSize = 30 * scale;
+            ctx.font = `${fontSize}px Roboto`;
+
+            ctx.textAlign = "right";
+            // ID Text
+            ctx.fillText(`#${id}`, -(x - (190 * scale) - localX * scale) + (c.width / 2), -(y + (170 * scale) - localY * scale) + (c.height / 2));
+            // Cost Text
+            ctx.fillText(`${upgrades[movingObjs[i].id - 1].cost} Points`, -(x - (190 * scale) - localX * scale) + (c.width / 2), -(y - (180 * scale) - localY * scale) + (c.height / 2));
+
+            ctx.textAlign = "left";
+            // Title Text
+            ctx.fillText(`${upgrades[movingObjs[i].id - 1].title}`, -(x + (190 * scale) - localX * scale) + (c.width / 2), -(y + (170 * scale) - localY * scale) + (c.height / 2));
+            // Amt Bought Text
+            ctx.fillText(`${upgrades[movingObjs[i].id - 1].bought}/${upgrades[movingObjs[i].id - 1].max}`, -(x + (190 * scale) - localX * scale) + (c.width / 2), -(y - (180 * scale)  - localY * scale) + (c.height / 2));
+
+            ctx.textAlign = "center";
+            // Description Text
+            ctx.fillText(`${upgrades[movingObjs[i].id - 1].desc}`, -(x - localX * scale) + (c.width / 2), -(y - localY * scale) + (c.height / 2));
+        }
+    }
+
+    // Draws the camera pos display (defined here cuz why not)
+    let posString = `X: ${x}, Y: ${-y}`;
+    let warnString = (x > 5000 || x < -5000 || y > 5000 || y < -5000) ? " -- Press Space to Reset Camera" : "";
+    ctx.font = "16px Roboto";
+    ctx.fillStyle = "grey";
+    ctx.textBaseline = "top";
+    ctx.textAlign = "left";
+    ctx.fillText(`${posString} ${warnString}`, 10, 10);
+
+    // Draws the mouse pos display
+    let mouseString = `Mouse X: ${Math.round(mouseX - (c.width / 2))}, Mouse Y: ${Math.round(-(mouseY - (c.height / 2)))}`;
+    ctx.textAlign = "right";
+    ctx.fillText(`${mouseString}`, c.width - 10, 10);
+
+    // TEMPORARY mouse-hovering display
+    let tempString = `Hovering: ${withinRangeOf}`;
+    ctx.textAlign = "right";
+    ctx.fillText(`${tempString}`, c.width - 10, 30);
+
+    // Draws the zoom display
+    let zoomString = `Zoom: x${formatNumber(scale, 2)}`;
+    ctx.textAlign = "left";
+    ctx.fillText(`${zoomString}`, 10, 30);
+
+    // Draws the currency displays
+    let pointString = `${formatNumber(points, 2)} Points (${formatNumber(pointGain, 2)}/s)`;
+    ctx.fillText(`${pointString}`, 10, c.height - 20);
+}
+
+
+// Detects if the mouse is hovering over a canvas item
+// d = detect. dw = detect width, dh = detect height, etc.
+function touchingMouse(dx, dy, dw, dh) {
+    // Define the bounds of the object trying to be detected
+    let left = dx - (dw / 2) - x;
+    let right = dx + (dw / 2) - x;
+    let top = dy + (dh / 2) + y;
+    let bottom = dy - (dh / 2)  + y;
+    /* console.log(`left: ${left}, right: ${right}, top: ${top}, bottom: ${bottom}`); */
+
+    // Get the mouse pos on the screen
+    let mx = (mouseX - (c.width / 2));
+    let my = (-(mouseY - (c.height / 2)));
+    /* console.log(`(${mx}, ${my})`); */
+
+    // Detect if the mouse is within the object bounds
+    // Note: JavaScript can't do value1 < var < value2
+    if (left <= mx && right >= mx && bottom <= my && top >= my) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+
+// Runs code based on the id of the button pressed
+// Praise StackOverflow for teaching me how the hell findIndex works
+function buttonClick(id) {
+    // Uses the upgrade ID to get the index of the upgrade in upgrades[]
+    let upgNum = upgrades.findIndex(item => item.id == id);
+    if (logToConsole) console.log(upgNum);
+
+    // Gets the ID and checks if it can buy the upgrade. Shouldn't need any specifications.
+    let success = false;
+    if (upgrades[upgNum].id == id) {
+        if (points >= upgrades[upgNum].cost && upgrades[upgNum].bought < upgrades[upgNum].max) {
+            success = true;
+            points -= upgrades[upgNum].cost;
+            upgrades[upgNum].bought++;
+        }
+    }
+
+    // Upgrade-specific boosts
+    if (!success) return; // Voids the function if the upgrade purchase failed
+    if (id == "U1") {
+        upgrades[upgNum].cost += 10;
+        basePointGain += 1;
+    }
+}
+
+
+// Formats numbers so you dont just see 8734595046 etc etc
+// This is TERRIBLE I will implement BreakInfinity.js later
+// TODO (for now) -- Add extra zeroes (i.e. 1.90 instead of 1.9) to prevent flashing
+function formatNumber(num, precision) {
+    let exponent = Math.floor(Math.log10(num));
+    let mantissa = Math.round((num / 10 ** exponent) * 1000) / 1000; //Rounds the mantissa.. hopefully
+    let rounding = 10 ** precision;
+    let roundedNum;
+
+    if (num < 1e9) {
+        //Some nonsense to add commas between the numbers
+        roundedNum = Math.floor(num * rounding) / rounding;
+        if (num >= 1e6) return `${Math.floor(roundedNum / 1e6)},${Math.floor((roundedNum / 1000) % 1000).toString().padStart(3, '0')},${Math.floor(roundedNum % 1000).toString().padStart(3, '0')}`;
+        else if (num >= 1e3) return `${Math.floor(roundedNum / 1000)},${(Math.floor(roundedNum % 1000)).toString().padStart(3, '0')}`;
+        else return String(roundedNum);
+    }
+    else {
+        //Scientific notation
+        return String(mantissa + "e" + exponent)
+    }
+}
