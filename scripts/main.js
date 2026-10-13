@@ -22,7 +22,7 @@ let withinRangeOf = "none";
 
 // Actual game related variables
 // Currencies
-var points = 0;
+var points = 10000;
 
 // Point gain
 var pointGain;
@@ -71,7 +71,7 @@ const intervalId = setInterval(() => {
     // Run currency calculations
     manageBoosts();
 
-    let totalPointMulti = multiPointGain * upgrades[2].boost;
+    let totalPointMulti = multiPointGain * upgrades[2].boost * upgrades[3].boost * upgrades[4].boost;
     pointGain = Math.pow(basePointGain * totalPointMulti, ExpPointGain);
     points += (pointGain / 60);
 }, 1000/60);
@@ -167,7 +167,9 @@ document.addEventListener("keydown", (event) => {
 const movingObjs = [
     { type: "Upgrade", upgType: "U", id: "1", coords: [0, 0] },
     { type: "Upgrade", upgType: "U", id: "2", coords: [-250, 500] },
-    { type: "Upgrade", upgType: "U", id: "3", coords: [250, 500] }
+    { type: "Upgrade", upgType: "U", id: "3", coords: [250, 500] },
+    { type: "Upgrade", upgType: "U", id: "4", coords: [-750, 500] },
+    { type: "Upgrade", upgType: "U", id: "5", coords: [250, 1000] },
     
     // Order matters. Text is drawn last so it appears on top.
     // There's going to be non-upgrade text and boxes later... probably
@@ -184,6 +186,29 @@ function drawCanvas() {
 
     // Resets the canvas
     ctx.clearRect(0, 0, c.width, c.height);
+
+    // First thing to be drawn is the background
+    // Draw the vertical lines
+    ctx.strokeStyle = "rgb(6, 6, 6)";
+    ctx.lineWidth = 5 * scale;
+    let gapSize = 100 * scale;
+    let lineX = -(x % gapSize);
+    while (lineX < c.width) {
+        ctx.beginPath();
+        ctx.moveTo(lineX, 0);
+        ctx.lineTo(lineX, c.height);
+        ctx.stroke();
+        lineX += gapSize;
+    }
+    // Now draw the horizontal lines
+    let lineY = -(y % gapSize);
+    while (lineY < c.height) {
+        ctx.beginPath();
+        ctx.moveTo(0, lineY);
+        ctx.lineTo(c.width, lineY);
+        ctx.stroke();
+        lineY += gapSize;
+    }
 
     // Draws every object in movingObjs[] based on simulated camera location
     for (let i = 0; i < movingObjs.length; i++) {
@@ -239,12 +264,12 @@ function drawCanvas() {
             let fullID = movingObjs[i].upgType + movingObjs[i].id;
             let upgNum = upgrades.findIndex(item => item.id == fullID);
             let reqs = upgrades[upgNum].req.length;
-            let unlocked = false;
+            let unlocked = 0;
             if (logToConsole) console.log(`fullID: ${fullID} | upgNum: ${upgNum} | reqs: ${reqs} | unlocked: ${unlocked}`);
             for (let j = 0; j < reqs; j++) {
                 // Case 1: No requirement
                 if (upgrades[upgNum].req[j] == "") {
-                    unlocked = true;
+                    unlocked += 1;
                     break;
                 }
 
@@ -252,12 +277,11 @@ function drawCanvas() {
                 let numToCheck = upgrades.findIndex(item => item.id == upgrades[upgNum].req[j]);
                 if (logToConsole) console.log(`req: ${upgrades[upgNum].req[j]} | numToCheck: ${numToCheck}`);
                 if (upgrades[numToCheck].bought > 0) {
-                    unlocked = true;
-                    break;
+                    unlocked += 1;
                 }
             }
             // Stops the function if the upgrade hasn't been unlocked
-            if (!unlocked) break;
+            if (unlocked != reqs) continue;
 
             // Set defining upgrade parts
             let id = movingObjs[i].id;
@@ -295,13 +319,16 @@ function drawCanvas() {
             // ID Text
             ctx.fillText(`#${id}`, -(x - (190 * scale) - localX * scale) + (c.width / 2), -(y + (170 * scale) - localY * scale) + (c.height / 2));
             // Cost Text
-            ctx.fillText(`${upgrades[upgNum].cost} Points`, -(x - (190 * scale) - localX * scale) + (c.width / 2), -(y - (180 * scale) - localY * scale) + (c.height / 2));
+            let costString = (upgrades[upgNum].bought < upgrades[upgNum].max) ? `${formatNumber(upgrades[upgNum].cost, 2)} Points` : "MAXED";
+            ctx.fillText(`${costString}`, -(x - (190 * scale) - localX * scale) + (c.width / 2), -(y - (180 * scale) - localY * scale) + (c.height / 2));
 
             ctx.textAlign = "left";
             // Title Text
             ctx.fillText(`${upgrades[upgNum].title}`, -(x + (190 * scale) - localX * scale) + (c.width / 2), -(y + (170 * scale) - localY * scale) + (c.height / 2));
             // Amt Bought Text
+            ctx.fillStyle = (upgrades[upgNum].bought == upgrades[upgNum].max) ? "rgb(50, 50, 255)" : `hsl(${(upgrades[upgNum].bought / upgrades[upgNum].max) * 80}, 100%, 50%)`;
             ctx.fillText(`${upgrades[upgNum].bought}/${upgrades[upgNum].max}`, -(x + (190 * scale) - localX * scale) + (c.width / 2), -(y - (180 * scale)  - localY * scale) + (c.height / 2));
+            ctx.fillStyle = "white";
 
             ctx.textAlign = "center";
             // Description Text
@@ -315,6 +342,7 @@ function drawCanvas() {
             }
 
             // Multi-line descriptions may exist. This is my half-assed attempt to make it work
+            // #region multi-line
             const maxLineLength = 25;
             let lineHeight = 40 * scale; // I'm totally just guessing what this is supposed to be
 
@@ -385,6 +413,7 @@ function drawCanvas() {
                 lastStringEnd = stringMax;
                 console.log(`Loop ${i} | min: ${stringMin}, max: ${stringMax}`)
             }
+            // #endregion
         }
     }
 
