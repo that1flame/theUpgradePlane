@@ -22,7 +22,7 @@ let withinRangeOf = "none";
 
 // Actual game related variables
 // Currencies
-var points = 10000;
+var points = 0;
 
 // Point gain
 var pointGain;
