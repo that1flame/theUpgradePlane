@@ -13,6 +13,34 @@ function log(num, base) {
     return Math.log10(num) / Math.log10(base);
 }
 
+function getindexNum(id) {
+    return upgrades.findIndex(item => item.id == id);
+}
+
+function isUnlocked(fullID) {
+    // First: Detect if the upgrade has even been unlocked
+    let upgNum = upgrades.findIndex(item => item.id == fullID);
+    let reqs = upgrades[upgNum].req.length;
+    let unlocked = 0;
+    /* console.log(`fullID: ${fullID} | upgNum: ${upgNum} | reqs: ${reqs} | unlocked: ${unlocked}`); */
+    for (let j = 0; j < reqs; j++) {
+        // Case 1: No requirement
+        if (upgrades[upgNum].req[j] == "") {
+            unlocked += 1;
+            break;
+        }
+
+        // Case 2: Normal upgrade requirement
+        let numToCheck = upgrades.findIndex(item => item.id == upgrades[upgNum].req[j]);
+        /* console.log(`req: ${upgrades[upgNum].req[j]} | numToCheck: ${numToCheck}`); */
+        if (upgrades[numToCheck].bought > 0) {
+            unlocked += 1;
+        }
+    }
+
+    return (unlocked != reqs) ? true : false;
+}
+
 let indexNum;
 function manageBoosts() {
     indexNum = upgrades.findIndex(item => item.id == "U3")

@@ -20,6 +20,10 @@ let ctx; // Context -- Also defined in Start()
 let dpr; // According to a guide online this is important. Not sure what it does honestly
 let withinRangeOf = "none";
 
+// Accessibility Stuff
+let selected = ""; // This is used in accessibility.js
+let isKeyNav = false;
+
 // Actual game related variables
 // Currencies
 var points = 0;
@@ -97,8 +101,12 @@ window.addEventListener("wheel", (event) => {
 
 
 // Runs this function every time it detects mouse movement
-document.addEventListener("mousemove", (event) => {
+document.addEventListener("mousemove", moveCam);
+document.addEventListener("touchmove", moveCam);
+
+function moveCam() {
     // Set mouse position variables based on where the mouse is on the screen
+    // VSCode says "event" is depreciated but it works so idgaf
     mouseX = event.clientX;
     mouseY = event.clientY;
 
@@ -113,12 +121,19 @@ document.addEventListener("mousemove", (event) => {
 
     // It is unoptimised as all hell to set this here but it makes it work so.
     withinRangeOf = "none";
-})
+}
 
 
 // Runs this function when it detects any mouse button inputs
 // Doesn't account for releases, only if it's down or not
-document.addEventListener("mousedown", (event) => {
+document.addEventListener("mousedown", inputDown);
+document.addEventListener("touchstart", inputDown);
+
+function inputDown() {
+    // Reset arrow key nav if not using arrow keys
+    isKeyNav = false;
+    selected = "";
+
     // Set mouse position variables based on where the mouse is on the screen
     // These are defined differently from "mousemove" above since they never interact
     mouseX = event.clientX;
@@ -137,16 +152,19 @@ document.addEventListener("mousedown", (event) => {
     if (withinRangeOf != "none") {
         buttonClick(withinRangeOf);
     }
-})
+}
 
 
 // Runs this function when it detects any mouse button RELEASES
 // Only used for simulated camera movement
 // It may not actually be needed but I am NOT going to remove it
-document.addEventListener("mouseup", () => {
+document.addEventListener("mouseup", inputUp);
+document.addEventListener("touchend", inputUp);
+
+function inputUp() {
     isMoving = false;
     if (logToConsole) console.log("Mouse input released.")
-})
+}
 
 
 // Runs this function every time any key is pressed
@@ -189,7 +207,7 @@ function drawCanvas() {
 
     // First thing to be drawn is the background
     // Draw the vertical lines
-    ctx.strokeStyle = "rgb(6, 6, 6)";
+    ctx.strokeStyle = "rgb(5, 5, 5)";
     ctx.lineWidth = 5 * scale;
     let gapSize = 100 * scale;
     let lineX = -(x % gapSize);
@@ -263,25 +281,9 @@ function drawCanvas() {
             // First: Detect if the upgrade has even been unlocked
             let fullID = movingObjs[i].upgType + movingObjs[i].id;
             let upgNum = upgrades.findIndex(item => item.id == fullID);
-            let reqs = upgrades[upgNum].req.length;
-            let unlocked = 0;
-            if (logToConsole) console.log(`fullID: ${fullID} | upgNum: ${upgNum} | reqs: ${reqs} | unlocked: ${unlocked}`);
-            for (let j = 0; j < reqs; j++) {
-                // Case 1: No requirement
-                if (upgrades[upgNum].req[j] == "") {
-                    unlocked += 1;
-                    break;
-                }
 
-                // Case 2: Normal upgrade requirement
-                let numToCheck = upgrades.findIndex(item => item.id == upgrades[upgNum].req[j]);
-                if (logToConsole) console.log(`req: ${upgrades[upgNum].req[j]} | numToCheck: ${numToCheck}`);
-                if (upgrades[numToCheck].bought > 0) {
-                    unlocked += 1;
-                }
-            }
             // Stops the function if the upgrade hasn't been unlocked
-            if (unlocked != reqs) continue;
+            if (isUnlocked(fullID)) continue;
 
             // Set defining upgrade parts
             let id = movingObjs[i].id;
@@ -300,7 +302,7 @@ function drawCanvas() {
             ctx.lineWidth = 3 * scale;
 
             // Parameter: Change border style if touching mouse
-            if (touchingMouse(localX * scale, -localY * scale, width * scale, height * scale)) {
+            if (touchingMouse(localX * scale, -localY * scale, width * scale, height * scale) || selected == fullID) {
                 withinRangeOf = movingObjs[i].upgType + movingObjs[i].id;
                 ctx.strokeStyle = "rgb(255, 255, 255)";
             }
@@ -436,6 +438,11 @@ function drawCanvas() {
     ctx.textAlign = "right";
     ctx.fillText(`${tempString}`, c.width - 10, 30);
 
+    // MAYBE TEMPORARY arrow-key selected display
+    let selectString = `Selected: ${selected}`;
+    ctx.textAlign = "right";
+    ctx.fillText(`${selectString}`, c.width - 10, 50);
+
     // Draws the zoom display
     let zoomString = `Zoom: x${formatNumber(scale, 2)}`;
     ctx.textAlign = "left";
@@ -478,7 +485,7 @@ function touchingMouse(dx, dy, dw, dh) {
 function buttonClick(id) {
     // Uses the upgrade ID to get the index of the upgrade in upgrades[]
     let upgNum = upgrades.findIndex(item => item.id == id);
-    if (logToConsole) console.log(upgNum);
+    /* console.log(upgNum); */
 
     // Gets the ID and checks if it can buy the upgrade. Shouldn't need any specifications.
     let success = false;
