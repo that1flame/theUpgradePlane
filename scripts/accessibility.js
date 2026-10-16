@@ -42,17 +42,29 @@ function detectNearestUpg(dir) {
         // TODO -- Select upgrade based on direction and not just the ID
         // TODO -- Only navigate to a new upgrade if it's unlocked
         if (dir == "up" || dir == "right") {
-            selected = upgrades[getindexNum(selected) + 1].id;
-            // This works as long as the upgrade order in movingObjs[] is IDENTICAL to upgrades[].
-            // For the love of god do not ruin that so I don't have to make a workaround
-            x = (movingObjs[getindexNum(selected)].coords[0] * scale);
-            y = -(movingObjs[getindexNum(selected)].coords[1] * scale);
+            if (upgrades[getindexNum(selected) + 1].unlocked) {
+                selected = upgrades[getindexNum(selected) + 1].id;
+                // This works as long as the upgrade order in movingObjs[] is IDENTICAL to upgrades[].
+                // For the love of god do not ruin that so I don't have to make a workaround
+                isCameraLerp = true;
+                cameraLerp(movingObjs[getindexNum(selected)].coords[0] * scale, -(movingObjs[getindexNum(selected)].coords[1] * scale));
+            }
         }
         if (dir == "down" || dir == "left") {
-            selected = upgrades[getindexNum(selected) - 1].id;
-            // Same applies for down here. I'm not copying the comment.
-            x = (movingObjs[getindexNum(selected)].coords[0] * scale);
-            y = -(movingObjs[getindexNum(selected)].coords[1] * scale);
+            if (upgrades[getindexNum(selected)].unlocked) {
+                selected = upgrades[getindexNum(selected) - 1].id;
+                // Same applies for down here. I'm not copying the comment.
+                isCameraLerp = true;
+                cameraLerp(movingObjs[getindexNum(selected)].coords[0] * scale, -(movingObjs[getindexNum(selected)].coords[1] * scale));
+            }
         }
     }
+}
+
+function cameraLerp(new_X, new_Y) {
+    newX = new_X;
+    newY = new_Y;
+
+    Xdiff = newX - x;
+    Ydiff = newY - y;
 }

@@ -2,11 +2,11 @@
 var upgrades = [
     // For whatever fucking reason, detecting vars as "NaN" doesn't so shit so I have to use -999
     // Also: a costMulti at 0 either means the cost is added (like U1) or its only bought once (like U5)
-    { id: "U1", cost: 0, costMult: 0, bought: 0, max: 10, boost: -999, title: "Fresh Start", desc: "+1 Points/s per Level", req: [ "" ] },
-    { id: "U2", cost: 100, costMult: 1.2, bought: 0, max: 50, boost: -999, title: "Multiplying", desc: "+1x Points/s per Level", req: [ "U1" ] },
-    { id: "U3", cost: 200, costMult: 1.5, bought: 0, max: 20, boost: 1, title: "Self-Boost", desc: "A % of Points boosts itself. Each Level increases the %", req: [ "U1" ] },
-    { id: "U4", cost: 500, costMult: 1.4, bought: 0, max: 10, boost: 1, title: "True Multiplying", desc: "1.15x Points/s per Level", req: [ "U2" ] },
-    { id: "U5", cost: 3000, costMult: 0, bought: 0, max: 1, boost: 1, title: "Conditionally", desc: "3x Point Gain if current Points < 10,000. Else, 1.5x Point gain", req: [ "U3" ] },
+    { id: "U1", cost: 0, costMult: 0, bought: 0, max: 10, boost: -999, title: "Fresh Start", desc: "+1 Points/s per Level", req: [ "" ], unlocked: true },
+    { id: "U2", cost: 100, costMult: 1.2, bought: 0, max: 50, boost: -999, title: "Multiplying", desc: "+1x Points/s per Level", req: [ "U1" ], unlocked: false },
+    { id: "U3", cost: 200, costMult: 1.5, bought: 0, max: 20, boost: 1, title: "Self-Boost", desc: "A % of Points boosts itself. Each Level increases the %", req: [ "U1" ], unlocked: false },
+    { id: "U4", cost: 500, costMult: 1.4, bought: 0, max: 10, boost: 1, title: "True Multiplying", desc: "1.15x Points/s per Level", req: [ "U2" ], unlocked: false },
+    { id: "U5", cost: 3000, costMult: 0, bought: 0, max: 1, boost: 1, title: "Conditionally", desc: "3x Point Gain if current Points < 10,000. Else, 1.5x Point gain", req: [ "U3" ], unlocked: false },
 ]
 
 function log(num, base) {
@@ -38,6 +38,8 @@ function isUnlocked(fullID) {
         }
     }
 
+    upgrades[getindexNum(fullID)].unlocked = (unlocked == reqs) ? true : false;
+    // I don't know why this check is opposite of the one above it.
     return (unlocked != reqs) ? true : false;
 }
 
